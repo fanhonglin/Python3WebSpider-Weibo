@@ -5,23 +5,23 @@ from weibo.items import *
 
 class WeiboSpider(Spider):
     name = 'weibocn'
-    
+
     allowed_domains = ['m.weibo.cn']
-    
+
     user_url = 'https://m.weibo.cn/api/container/getIndex?uid={uid}&type=uid&value={uid}&containerid=100505{uid}'
-    
+
     follow_url = 'https://m.weibo.cn/api/container/getIndex?containerid=231051_-_followers_-_{uid}&page={page}'
-    
+
     fan_url = 'https://m.weibo.cn/api/container/getIndex?containerid=231051_-_fans_-_{uid}&page={page}'
-    
+
     weibo_url = 'https://m.weibo.cn/api/container/getIndex?uid={uid}&type=uid&page={page}&containerid=107603{uid}'
-    
+
     start_users = ['3217179555', '1742566624', '2282991915', '1288739185', '3952070245', '5878659096']
-    
+
     def start_requests(self):
         for uid in self.start_users:
             yield Request(self.user_url.format(uid=uid), callback=self.parse_user)
-    
+
     def parse_user(self, response):
         """
         解析用户信息
@@ -43,6 +43,8 @@ class WeiboSpider(Spider):
             yield user_item
             # 关注
             uid = user_info.get('id')
+
+            # meta 需要把参数传入当中
             yield Request(self.follow_url.format(uid=uid, page=1), callback=self.parse_follows,
                           meta={'page': 1, 'uid': uid})
             # 粉丝
@@ -51,22 +53,26 @@ class WeiboSpider(Spider):
             # 微博
             yield Request(self.weibo_url.format(uid=uid, page=1), callback=self.parse_weibos,
                           meta={'page': 1, 'uid': uid})
-    
+
     def parse_follows(self, response):
         """
         解析用户关注
         :param response: Response对象
         """
         result = json.loads(response.text)
-        if result.get('ok') and result.get('data').get('cards') and len(result.get('data').get('cards')) and result.get('data').get('cards')[-1].get(
-            'card_group'):
+        if result.get('ok') \
+                and result.get('data').get('cards') \
+                and len(result.get('data').get('cards')) \
+                and \
+                result.get('data').get('cards')[-1].get('card_group'):
+
             # 解析用户
             follows = result.get('data').get('cards')[-1].get('card_group')
             for follow in follows:
                 if follow.get('user'):
                     uid = follow.get('user').get('id')
                     yield Request(self.user_url.format(uid=uid), callback=self.parse_user)
-            
+
             uid = response.meta.get('uid')
             # 关注列表
             user_relation_item = UserRelationItem()
@@ -80,22 +86,23 @@ class WeiboSpider(Spider):
             page = response.meta.get('page') + 1
             yield Request(self.follow_url.format(uid=uid, page=page),
                           callback=self.parse_follows, meta={'page': page, 'uid': uid})
-    
+
     def parse_fans(self, response):
         """
         解析用户粉丝
         :param response: Response对象
         """
         result = json.loads(response.text)
-        if result.get('ok') and result.get('data').get('cards') and len(result.get('data').get('cards')) and result.get('data').get('cards')[-1].get(
-            'card_group'):
+        if result.get('ok') and result.get('data').get('cards') and len(result.get('data').get('cards')) and \
+                result.get('data').get('cards')[-1].get(
+                    'card_group'):
             # 解析用户
             fans = result.get('data').get('cards')[-1].get('card_group')
             for fan in fans:
                 if fan.get('user'):
                     uid = fan.get('user').get('id')
                     yield Request(self.user_url.format(uid=uid), callback=self.parse_user)
-            
+
             uid = response.meta.get('uid')
             # 粉丝列表
             user_relation_item = UserRelationItem()
@@ -109,7 +116,7 @@ class WeiboSpider(Spider):
             page = response.meta.get('page') + 1
             yield Request(self.fan_url.format(uid=uid, page=page),
                           callback=self.parse_fans, meta={'page': page, 'uid': uid})
-    
+
     def parse_weibos(self, response):
         """
         解析微博列表
